@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>7% Decrement Calculator</title>
+  <style>
+    /* Add your CSS here */
+  </style>
+</head>
+<body>
+  <h1>7% Decrement Calculator</h1>
+  <form>
+    <label for="number">Enter a number:</label><br>
+    <input type="number" id="number"><br>
+    <button type="button" onclick="calculate()">Calculate</button>
+  </form> 
+  <div id="result"></div>
+  <script>
+    // Add your JavaScript here
+    function closestSevenPercentDecrement(n) {
+      return Math.floor(n / 0.93);
+    }
+
+    function calculate() {
+      var n = document.getElementById("number").value;
+      var result = closestSevenPercentDecrement(n);
+      document.getElementById("result").innerHTML = "The closest 7% decrement value of " + n + " is " + result + ".";
+    }
+  </script>
+</body>
+</html>
