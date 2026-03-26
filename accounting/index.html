@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bakery Ledger">
+    <title>Bakery Ledger</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            padding-top: env(safe-area-inset-top, 20px);
+            background: #f4f4f9;
+            color: #1c1c1e;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h2 { margin-bottom: 16px; font-size: 28px; }
+        .card {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin: 6px 0;
+            border-radius: 8px;
+            border: 1px solid #d1d1d6;
+            font-size: 16px;
+            background: #fafafa;
+        }
+        input:focus, select:focus { outline: none; border-color: #5856d6; }
+        .btn {
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-primary { background: #5856d6; width: 100%; padding: 14px; margin-top: 8px; }
+        .btn-export { background: #34c759; }
+        .btn-import { background: #5856d6; }
+        .btn-reset { background: #ff3b30; }
+        .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .toolbar-title { font-weight: 700; font-size: 17px; flex: 1; }
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 10px 0;
+            font-size: 15px;
+        }
+        .log-item:last-child { border-bottom: none; }
+        .log-item .item-name { font-weight: 500; }
+        .log-item .item-price { font-weight: 600; color: #34c759; }
+        .log-item .item-date { font-size: 12px; color: #8e8e93; }
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            font-size: 17px;
+            font-weight: 700;
+            border-top: 2px solid #e5e5ea;
+            margin-top: 8px;
+        }
+        .empty-state { text-align: center; padding: 24px; color: #8e8e93; }
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+    <h2>🧁 Bakery Ledger</h2>
+
+    <div class="card">
+        <input type="text" id="item" placeholder="Item (e.g., Sourdough)" autocomplete="off">
+        <input type="number" id="price" placeholder="Price" inputmode="decimal" step="any">
+        <input type="number" id="qty" placeholder="Quantity (default: 1)" inputmode="numeric" min="1" value="">
+        <button class="btn btn-primary" onclick="addTransaction()">Record Sale</button>
+    </div>
+
+    <div class="card">
+        <div class="toolbar">
+            <span class="toolbar-title">Transactions</span>
+            <button class="btn btn-export" onclick="exportToCSV()">Export</button>
+            <button class="btn btn-import" onclick="document.getElementById('fileInput').click()">Import</button>
+            <button class="btn btn-reset" onclick="clearDatabase()">Reset</button>
+        </div>
+        <input type="file" id="fileInput" accept=".csv" onchange="importFromCSV(event)">
+        <div id="log-list"></div>
+        <div class="summary">
+            <span>Total</span>
+            <span id="total-amount">$0.00</span>
+        </div>
+    </div>
+
+    <script>
+        let db;
+
+        function openDB() {
+            return new Promise(function(resolve, reject) {
+                var request = indexedDB.open("BakeryDB", 2);
+                request.onupgradeneeded = function(e) {
+                    var database = e.target.result;
+                    if (!database.objectStoreNames.contains("sales")) {
+                        database.createObjectStore("sales", { keyPath: "id", autoIncrement: true });
+                    }
+                };
+                request.onsuccess = function(e) {
+                    resolve(e.target.result);
+                };
+                request.onerror = function(e) {
+                    reject(e.target.error);
+                };
+            });
+        }
+
+        openDB().then(function(database) {
+            db = database;
+            renderLogs();
+        });
+
+        function addTransaction() {
+            var item = document.getElementById('item').value.trim();
+            var price = parseFloat(document.getElementById('price').value);
+            var qty = parseInt(document.getElementById('qty').value) || 1;
+            if (!item || isNaN(price)) return;
+
+            var tx = db.transaction("sales", "readwrite");
+            tx.objectStore("sales").add({
+                item: item,
+                price: price,
+                qty: qty,
+                total: price * qty,
+                date: new Date().toISOString()
+            });
+            tx.oncomplete = function() {
+                document.getElementById('item').value = '';
+                document.getElementById('price').value = '';
+                document.getElementById('qty').value = '';
+                renderLogs();
+            };
+        }
+
+        function renderLogs() {
+            var list = document.getElementById('log-list');
+            var totalEl = document.getElementById('total-amount');
+            var tx = db.transaction("sales");
+            tx.objectStore("sales").getAll().onsuccess = function(e) {
+                var records = e.target.result;
+                if (records.length === 0) {
+                    list.innerHTML = '<div class="empty-state">No transactions yet</div>';
+                    totalEl.textContent = '$0.00';
+                    return;
+                }
+                var sum = 0;
+                var html = '';
+                for (var i = records.length - 1; i >= 0; i--) {
+                    var s = records[i];
+                    var lineTotal = s.total || (parseFloat(s.price) * (s.qty || 1));
+                    sum += lineTotal;
+                    var d = new Date(s.date);
+                    var dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                    html += '<div class="log-item">'
+                        + '<div><span class="item-name">' + escapeHtml(s.item) + '</span>'
+                        + (s.qty > 1 ? ' x' + s.qty : '')
+                        + '<br><span class="item-date">' + dateStr + '</span></div>'
+                        + '<span class="item-price">$' + lineTotal.toFixed(2) + '</span>'
+                        + '</div>';
+                }
+                list.innerHTML = html;
+                totalEl.textContent = '$' + sum.toFixed(2);
+            };
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function exportToCSV() {
+            var tx = db.transaction("sales", "readonly");
+            tx.objectStore("sales").getAll().onsuccess = function(e) {
+                var data = e.target.result;
+                if (data.length === 0) return alert("No data to export!");
+
+                var csv = "ID,Item,Price,Quantity,Total,Date\n";
+                data.forEach(function(row) {
+                    var lineTotal = row.total || (parseFloat(row.price) * (row.qty || 1));
+                    csv += row.id + ',"' + (row.item || '').replace(/"/g, '""') + '",'
+                        + row.price + ',' + (row.qty || 1) + ',' + lineTotal.toFixed(2)
+                        + ',"' + row.date + '"\n';
+                });
+
+                var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement("a");
+                link.href = url;
+                link.download = "Bakery_Sales_" + new Date().toISOString().slice(0,10) + ".csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+        }
+
+        function clearDatabase() {
+            if (!confirm("Delete ALL sales data? Make sure you exported first!")) return;
+            var tx = db.transaction("sales", "readwrite");
+            tx.objectStore("sales").clear();
+            tx.oncomplete = function() {
+                alert("Database cleared.");
+                renderLogs();
+            };
+        }
+
+        function importFromCSV(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var text = e.target.result;
+                var rows = text.split("\n").slice(1);
+                var tx = db.transaction("sales", "readwrite");
+                var store = tx.objectStore("sales");
+                var count = 0;
+
+                rows.forEach(function(row) {
+                    if (!row.trim()) return;
+                    var parts = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    var item = (parts[1] || "Unknown").replace(/"/g, "").trim();
+                    var price = parseFloat(parts[2]) || 0;
+                    var qty = parseInt(parts[3]) || 1;
+                    var total = parseFloat(parts[4]) || price * qty;
+                    var date = (parts[5] || "").replace(/"/g, "").trim() || new Date().toISOString();
+
+                    store.add({ item: item, price: price, qty: qty, total: total, date: date });
+                    count++;
+                });
+
+                tx.oncomplete = function() {
+                    alert("Imported " + count + " records!");
+                    renderLogs();
+                    event.target.value = '';
+                };
+            };
+            reader.readAsText(file);
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
