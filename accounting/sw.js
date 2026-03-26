@@ -1,8 +1,10 @@
-var CACHE_NAME = 'bakery-v1';
+var CACHE_NAME = 'bakery-accounting-v3';
+var DEXIE_CDN = 'https://unpkg.com/dexie@4/dist/dexie.min.js';
 var ASSETS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  DEXIE_CDN
 ];
 
 self.addEventListener('install', function(e) {
@@ -29,7 +31,18 @@ self.addEventListener('activate', function(e) {
 self.addEventListener('fetch', function(e) {
   e.respondWith(
     caches.match(e.request).then(function(cached) {
-      return cached || fetch(e.request);
+      if (cached) return cached;
+      return fetch(e.request).then(function(response) {
+        if (response && response.status === 200 && response.type === 'basic') {
+          var responseClone = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(e.request, responseClone);
+          });
+        }
+        return response;
+      }).catch(function() {
+        return caches.match('./index.html');
+      });
     })
   );
 });

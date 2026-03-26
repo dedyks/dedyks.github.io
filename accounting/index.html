@@ -1,267 +1,884 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Bakery Ledger">
-    <title>Bakery Ledger</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            padding: 20px;
-            padding-top: env(safe-area-inset-top, 20px);
-            background: #f4f4f9;
-            color: #1c1c1e;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        h2 { margin-bottom: 16px; font-size: 28px; }
-        .card {
-            background: white;
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 16px;
-        }
-        input, select {
-            width: 100%;
-            padding: 12px;
-            margin: 6px 0;
-            border-radius: 8px;
-            border: 1px solid #d1d1d6;
-            font-size: 16px;
-            background: #fafafa;
-        }
-        input:focus, select:focus { outline: none; border-color: #5856d6; }
-        .btn {
-            display: inline-block;
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: none;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            color: white;
-        }
-        .btn-primary { background: #5856d6; width: 100%; padding: 14px; margin-top: 8px; }
-        .btn-export { background: #34c759; }
-        .btn-import { background: #5856d6; }
-        .btn-reset { background: #ff3b30; }
-        .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .toolbar-title { font-weight: 700; font-size: 17px; flex: 1; }
-        .log-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #f0f0f0;
-            padding: 10px 0;
-            font-size: 15px;
-        }
-        .log-item:last-child { border-bottom: none; }
-        .log-item .item-name { font-weight: 500; }
-        .log-item .item-price { font-weight: 600; color: #34c759; }
-        .log-item .item-date { font-size: 12px; color: #8e8e93; }
-        .summary {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            font-size: 17px;
-            font-weight: 700;
-            border-top: 2px solid #e5e5ea;
-            margin-top: 8px;
-        }
-        .empty-state { text-align: center; padding: 24px; color: #8e8e93; }
-        #fileInput { display: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bakery Accounting">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Bakery Accounting</title>
+<script src="https://unpkg.com/dexie@4/dist/dexie.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--primary:#5856d6;--accent:#FF6B35;--success:#34c759;--danger:#ff3b30;--bg:#f5f0eb;--card:#fff;--text:#1c1c1e;--text2:#8e8e93;--border:#e5e5ea;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);max-width:900px;margin:0 auto;padding:16px;padding-top:env(safe-area-inset-top,16px);padding-bottom:80px;-webkit-tap-highlight-color:transparent}
+h2{font-size:22px;margin-bottom:12px}
+h3{font-size:17px;margin-bottom:8px}
+.card{background:var(--card);padding:16px;border-radius:var(--radius);box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+input,select,textarea{width:100%;padding:14px;margin:5px 0;border-radius:10px;border:1px solid var(--border);font-size:16px;font-family:inherit;background:#fafafa;color:var(--text);-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(88,86,214,.15)}
+input[type="color"]{height:50px;padding:4px;cursor:pointer}
+textarea{resize:vertical;min-height:60px}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 20px;border-radius:10px;border:none;font-size:15px;font-weight:600;cursor:pointer;color:#fff;min-height:44px;gap:6px;transition:opacity .15s}
+.btn:active{opacity:.7}
+.btn-primary{background:var(--primary)}
+.btn-success{background:var(--success)}
+.btn-danger{background:var(--danger)}
+.btn-accent{background:var(--accent)}
+.btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
+.btn-outline.active{background:var(--primary);color:#fff}
+.btn-sm{padding:8px 14px;font-size:13px;min-height:36px}
+.btn-block{width:100%}
+.toggle-group{display:flex;border-radius:10px;overflow:hidden;border:1.5px solid var(--primary)}
+.toggle-group .toggle-btn{flex:1;padding:10px 16px;text-align:center;font-size:14px;font-weight:600;cursor:pointer;background:transparent;color:var(--primary);border:none;min-height:44px;transition:all .15s}
+.toggle-group .toggle-btn.active{background:var(--primary);color:#fff}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:4px 0;padding-bottom:env(safe-area-inset-bottom,4px);z-index:100}
+.tab-btn{display:flex;flex-direction:column;align-items:center;padding:6px 0;min-width:60px;cursor:pointer;border:none;background:none;color:var(--text2);font-size:10px;font-weight:500;gap:2px;min-height:50px;transition:color .15s}
+.tab-btn .tab-icon{font-size:22px}
+.tab-btn.active{color:var(--primary)}
+.tab-content{display:none;animation:fadeIn .2s ease}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;display:none;align-items:flex-end;justify-content:center;padding:0}
+.modal-overlay.show{display:flex}
+.modal-content{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:900px;max-height:90vh;overflow-y:auto;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-header h3{margin:0}
+.modal-close{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;border:none;background:var(--bg);border-radius:50%;color:var(--text2)}
+.fab{position:fixed;bottom:76px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--primary);color:#fff;font-size:28px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(88,86,214,.4);z-index:50;display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.fab:active{transform:scale(.9)}
+.date-group{margin-bottom:16px}
+.date-group-header{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;background:var(--bg);z-index:10}
+.tx-item{display:flex;align-items:center;padding:12px;background:var(--card);border-radius:10px;margin-bottom:6px;cursor:pointer;gap:12px;transition:background .1s}
+.tx-item:active{background:#f0f0f0}
+.tx-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.tx-info{flex:1;min-width:0}
+.tx-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-cat{font-size:12px;color:var(--text2)}
+.tx-amount{font-weight:700;font-size:16px;text-align:right;white-space:nowrap}
+.tx-time{font-size:11px;color:var(--text2);text-align:right}
+.tx-right{text-align:right}
+.income-text{color:var(--success)}
+.expense-text{color:var(--danger)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-card{padding:14px;border-radius:10px;background:var(--bg)}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:700}
+.stat-value.sm{font-size:17px}
+.chart-container{padding:12px 0}
+.chart-bars{display:flex;align-items:flex-end;justify-content:space-between;height:140px;gap:6px;padding:0 4px}
+.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.chart-bar{width:100%;border-radius:6px 6px 0 0;background:var(--primary);min-height:2px;transition:height .3s ease}
+.chart-label{font-size:10px;color:var(--text2)}
+.chart-value{font-size:10px;font-weight:600;color:var(--text)}
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{padding-left:40px}
+.search-bar::before{content:'🔍';position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;z-index:1}
+.filter-row{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.filter-chip{padding:8px 14px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;border:1.5px solid var(--border);background:var(--card);color:var(--text);min-height:36px;display:flex;align-items:center}
+.filter-chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.product-card{padding:14px;border-radius:10px;background:var(--card);border:1.5px solid var(--border);cursor:pointer;text-align:center;transition:border-color .15s;position:relative}
+.product-card:active{border-color:var(--primary)}
+.product-card .p-emoji{font-size:28px}
+.product-card .p-name{font-weight:600;font-size:15px;margin-top:6px}
+.product-card .p-price{color:var(--success);font-weight:700;font-size:14px;margin-top:2px}
+.product-card .p-edit{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;background:var(--bg);border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.product-cat-group{margin-bottom:16px}
+.product-cat-header{font-size:15px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.cat-item{display:flex;align-items:center;padding:12px;background:var(--card);border-radius:10px;margin-bottom:6px;cursor:pointer;gap:12px}
+.cat-item:active{background:#f0f0f0}
+.cat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.cat-name{flex:1;font-weight:500}
+.badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.badge-income{background:rgba(52,199,89,.15);color:var(--success)}
+.badge-expense{background:rgba(255,59,48,.15);color:var(--danger)}
+.color-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0}
+.report-table{width:100%;border-collapse:collapse;font-size:14px}
+.report-table th{text-align:left;padding:10px 8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2);text-transform:uppercase}
+.report-table td{padding:10px 8px;border-bottom:1px solid var(--border)}
+.report-table tr:last-child td{border-bottom:none}
+.report-table .total-row{font-weight:700;border-top:2px solid var(--text)}
+.report-table .total-row td{border-bottom:none;padding-top:12px}
+.report-table .text-right{text-align:right}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text2)}
+.empty-state .empty-icon{font-size:48px;margin-bottom:12px}
+.empty-state p{font-size:15px}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);gap:12px}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-weight:500;font-size:15px;flex-shrink:0}
+.setting-input{width:180px;text-align:right;margin:0;flex-shrink:0}
+.danger-zone{border:1.5px solid var(--danger);border-radius:var(--radius);padding:16px;margin-top:20px}
+.danger-zone h3{color:var(--danger);margin-bottom:8px}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--text);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500;z-index:300;transition:transform .3s ease;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.form-group{margin-bottom:10px}
+.form-label{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px;display:block}
+.date-range-row{display:flex;gap:8px;margin-bottom:12px}
+.date-range-row input{flex:1}
+.section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px}
+.hidden{display:none!important}
+</style>
 </head>
 <body>
-    <h2>🧁 Bakery Ledger</h2>
+<div id="app-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<h2 id="header-title">My Bakery</h2>
+</div>
+<div id="tab-dashboard" class="tab-content active"></div>
+<div id="tab-transactions" class="tab-content"></div>
+<div id="tab-products" class="tab-content"></div>
+<div id="tab-reports" class="tab-content"></div>
+<div id="tab-settings" class="tab-content"></div>
+<button class="fab" id="fab-btn" onclick="onFabClick()">+</button>
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)hideModal()">
+<div class="modal-content" id="modal-content"></div>
+</div>
+<div class="toast" id="toast"></div>
+<nav class="tab-bar">
+<button class="tab-btn active" data-tab="dashboard"><span class="tab-icon">📊</span>Dashboard</button>
+<button class="tab-btn" data-tab="transactions"><span class="tab-icon">💰</span>Transactions</button>
+<button class="tab-btn" data-tab="products"><span class="tab-icon">🧁</span>Products</button>
+<button class="tab-btn" data-tab="reports"><span class="tab-icon">📈</span>Reports</button>
+<button class="tab-btn" data-tab="settings"><span class="tab-icon">⚙️</span>Settings</button>
+</nav>
+<script>
+var db = new Dexie('BakeryAccountingDB');
+db.version(1).stores({
+  transactions: '++id, type, categoryId, item, amount, qty, total, notes, date',
+  categories: '++id, name, type, color, icon',
+  products: '++id, name, price, categoryId',
+  settings: 'key'
+});
 
-    <div class="card">
-        <input type="text" id="item" placeholder="Item (e.g., Sourdough)" autocomplete="off">
-        <input type="number" id="price" placeholder="Price" inputmode="decimal" step="any">
-        <input type="number" id="qty" placeholder="Quantity (default: 1)" inputmode="numeric" min="1" value="">
-        <button class="btn btn-primary" onclick="addTransaction()">Record Sale</button>
-    </div>
+var CURRENCY = '$';
+var BUSINESS = 'My Bakery';
+var currentTab = 'dashboard';
+var catCache = [];
+var txFilterType = 'all';
+var txSearchText = '';
+var txDateFrom = '';
+var txDateTo = '';
 
-    <div class="card">
-        <div class="toolbar">
-            <span class="toolbar-title">Transactions</span>
-            <button class="btn btn-export" onclick="exportToCSV()">Export</button>
-            <button class="btn btn-import" onclick="document.getElementById('fileInput').click()">Import</button>
-            <button class="btn btn-reset" onclick="clearDatabase()">Reset</button>
-        </div>
-        <input type="file" id="fileInput" accept=".csv" onchange="importFromCSV(event)">
-        <div id="log-list"></div>
-        <div class="summary">
-            <span>Total</span>
-            <span id="total-amount">$0.00</span>
-        </div>
-    </div>
+var DEFAULT_CATS = [
+  {name:'Bread',type:'income',color:'#FF9500',icon:'🍞'},
+  {name:'Pastry',type:'income',color:'#FF6B35',icon:'🥐'},
+  {name:'Cake',type:'income',color:'#FF2D55',icon:'🎂'},
+  {name:'Drinks',type:'income',color:'#5AC8FA',icon:'☕'},
+  {name:'Other Income',type:'income',color:'#34c759',icon:'💰'},
+  {name:'Ingredients',type:'expense',color:'#AF52DE',icon:'🧈'},
+  {name:'Rent',type:'expense',color:'#8E8E93',icon:'🏠'},
+  {name:'Utilities',type:'expense',color:'#007AFF',icon:'💡'},
+  {name:'Salary',type:'expense',color:'#5856d6',icon:'👤'},
+  {name:'Other Expense',type:'expense',color:'#ff3b30',icon:'📦'}
+];
 
-    <script>
-        let db;
+function esc(t){var d=document.createElement('div');d.appendChild(document.createTextNode(t||''));return d.innerHTML}
+function fc(n){var v=parseFloat(n)||0;return CURRENCY+v.toFixed(2)}
 
-        function openDB() {
-            return new Promise(function(resolve, reject) {
-                var request = indexedDB.open("BakeryDB", 2);
-                request.onupgradeneeded = function(e) {
-                    var database = e.target.result;
-                    if (!database.objectStoreNames.contains("sales")) {
-                        database.createObjectStore("sales", { keyPath: "id", autoIncrement: true });
-                    }
-                };
-                request.onsuccess = function(e) {
-                    resolve(e.target.result);
-                };
-                request.onerror = function(e) {
-                    reject(e.target.error);
-                };
-            });
-        }
+function startOfDay(d){var r=new Date(d);r.setHours(0,0,0,0);return r}
+function endOfDay(d){var r=new Date(d);r.setHours(23,59,59,999);return r}
+function getMonday(d){var r=new Date(d);var day=r.getDay();var diff=r.getDate()-day+(day===0?-6:1);r.setDate(diff);return startOfDay(r)}
+function startOfMonth(d){var r=new Date(d);r.setDate(1);return startOfDay(r)}
+function startOfYear(d){var r=new Date(d);r.setMonth(0,1);return startOfDay(r)}
 
-        openDB().then(function(database) {
-            db = database;
-            renderLogs();
-        });
+function fmtDate(iso){
+  var d=new Date(iso);var now=new Date();
+  var today=startOfDay(now).getTime();
+  var ts=startOfDay(d).getTime();
+  if(ts===today)return 'Today';
+  if(ts===today-86400000)return 'Yesterday';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function fmtTime(iso){return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
+function fmtDateShort(iso){return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function dateKey(iso){return new Date(iso).toISOString().slice(0,10)}
+function toLocalISO(d){var o=d.getTimezoneOffset();var nd=new Date(d.getTime()-o*60000);return nd.toISOString().slice(0,16)}
 
-        function addTransaction() {
-            var item = document.getElementById('item').value.trim();
-            var price = parseFloat(document.getElementById('price').value);
-            var qty = parseInt(document.getElementById('qty').value) || 1;
-            if (!item || isNaN(price)) return;
+function showToast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show')},2200);
+}
 
-            var tx = db.transaction("sales", "readwrite");
-            tx.objectStore("sales").add({
-                item: item,
-                price: price,
-                qty: qty,
-                total: price * qty,
-                date: new Date().toISOString()
-            });
-            tx.oncomplete = function() {
-                document.getElementById('item').value = '';
-                document.getElementById('price').value = '';
-                document.getElementById('qty').value = '';
-                renderLogs();
-            };
-        }
+function showModal(html){
+  document.getElementById('modal-content').innerHTML=html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function hideModal(){document.getElementById('modal-overlay').classList.remove('show')}
 
-        function renderLogs() {
-            var list = document.getElementById('log-list');
-            var totalEl = document.getElementById('total-amount');
-            var tx = db.transaction("sales");
-            tx.objectStore("sales").getAll().onsuccess = function(e) {
-                var records = e.target.result;
-                if (records.length === 0) {
-                    list.innerHTML = '<div class="empty-state">No transactions yet</div>';
-                    totalEl.textContent = '$0.00';
-                    return;
-                }
-                var sum = 0;
-                var html = '';
-                for (var i = records.length - 1; i >= 0; i--) {
-                    var s = records[i];
-                    var lineTotal = s.total || (parseFloat(s.price) * (s.qty || 1));
-                    sum += lineTotal;
-                    var d = new Date(s.date);
-                    var dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                    html += '<div class="log-item">'
-                        + '<div><span class="item-name">' + escapeHtml(s.item) + '</span>'
-                        + (s.qty > 1 ? ' x' + s.qty : '')
-                        + '<br><span class="item-date">' + dateStr + '</span></div>'
-                        + '<span class="item-price">$' + lineTotal.toFixed(2) + '</span>'
-                        + '</div>';
-                }
-                list.innerHTML = html;
-                totalEl.textContent = '$' + sum.toFixed(2);
-            };
-        }
+function getCat(id){return catCache.find(function(c){return c.id===id})||{name:'Unknown',icon:'❓',color:'#ccc',type:'income'}}
 
-        function escapeHtml(text) {
-            var div = document.createElement('div');
-            div.appendChild(document.createTextNode(text));
-            return div.innerHTML;
-        }
+async function loadSettings(){
+  var c=await db.settings.get('currency');
+  var b=await db.settings.get('businessName');
+  CURRENCY=c?c.value:'$';
+  BUSINESS=b?b.value:'My Bakery';
+  document.getElementById('header-title').textContent=BUSINESS;
+}
 
-        function exportToCSV() {
-            var tx = db.transaction("sales", "readonly");
-            tx.objectStore("sales").getAll().onsuccess = function(e) {
-                var data = e.target.result;
-                if (data.length === 0) return alert("No data to export!");
+async function loadCats(){catCache=await db.categories.toArray()}
 
-                var csv = "ID,Item,Price,Quantity,Total,Date\n";
-                data.forEach(function(row) {
-                    var lineTotal = row.total || (parseFloat(row.price) * (row.qty || 1));
-                    csv += row.id + ',"' + (row.item || '').replace(/"/g, '""') + '",'
-                        + row.price + ',' + (row.qty || 1) + ',' + lineTotal.toFixed(2)
-                        + ',"' + row.date + '"\n';
-                });
+async function seedDB(){
+  var count=await db.categories.count();
+  if(count===0){
+    await db.categories.bulkAdd(DEFAULT_CATS);
+    await db.settings.bulkPut([{key:'currency',value:'$'},{key:'businessName',value:'My Bakery'}]);
+  }
+  await loadCats();
+  await loadSettings();
+}
 
-                var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                var url = URL.createObjectURL(blob);
-                var link = document.createElement("a");
-                link.href = url;
-                link.download = "Bakery_Sales_" + new Date().toISOString().slice(0,10) + ".csv";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-            };
-        }
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var tab=this.dataset.tab;
+    switchTab(tab);
+  });
+});
 
-        function clearDatabase() {
-            if (!confirm("Delete ALL sales data? Make sure you exported first!")) return;
-            var tx = db.transaction("sales", "readwrite");
-            tx.objectStore("sales").clear();
-            tx.oncomplete = function() {
-                alert("Database cleared.");
-                renderLogs();
-            };
-        }
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active')});
+  document.querySelectorAll('.tab-btn').forEach(function(el){el.classList.remove('active')});
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.querySelector('[data-tab="'+tab+'"]').classList.add('active');
+  var fab=document.getElementById('fab-btn');
+  fab.className='fab';
+  if(tab==='transactions'){fab.textContent='+';fab.classList.remove('hidden')}
+  else if(tab==='products'){fab.textContent='+';fab.classList.remove('hidden')}
+  else{fab.classList.add('hidden')}
+  renderTab(tab);
+}
 
-        function importFromCSV(event) {
-            var file = event.target.files[0];
-            if (!file) return;
+function onFabClick(){
+  if(currentTab==='transactions')showTxModal();
+  else if(currentTab==='products')showProductModal();
+}
 
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                var text = e.target.result;
-                var rows = text.split("\n").slice(1);
-                var tx = db.transaction("sales", "readwrite");
-                var store = tx.objectStore("sales");
-                var count = 0;
+function renderTab(tab){
+  if(tab==='dashboard')renderDashboard();
+  else if(tab==='transactions')renderTransactions();
+  else if(tab==='products')renderProducts();
+  else if(tab==='reports')renderReports();
+  else if(tab==='settings')renderSettings();
+}
 
-                rows.forEach(function(row) {
-                    if (!row.trim()) return;
-                    var parts = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    var item = (parts[1] || "Unknown").replace(/"/g, "").trim();
-                    var price = parseFloat(parts[2]) || 0;
-                    var qty = parseInt(parts[3]) || 1;
-                    var total = parseFloat(parts[4]) || price * qty;
-                    var date = (parts[5] || "").replace(/"/g, "").trim() || new Date().toISOString();
 
-                    store.add({ item: item, price: price, qty: qty, total: total, date: date });
-                    count++;
-                });
+async function renderDashboard(){
+  var el=document.getElementById('tab-dashboard');
+  var now=new Date();
+  var todayStart=startOfDay(now);
+  var todayEnd=endOfDay(now);
+  var weekStart=getMonday(now);
+  var monthStart=startOfMonth(now);
 
-                tx.oncomplete = function() {
-                    alert("Imported " + count + " records!");
-                    renderLogs();
-                    event.target.value = '';
-                };
-            };
-            reader.readAsText(file);
-        }
+  var allTx=await db.transactions.toArray();
+  var todayTx=allTx.filter(function(t){var d=new Date(t.date);return d>=todayStart&&d<=todayEnd});
+  var weekTx=allTx.filter(function(t){var d=new Date(t.date);return d>=weekStart&&d<=todayEnd});
+  var monthTx=allTx.filter(function(t){var d=new Date(t.date);return d>=monthStart&&d<=todayEnd});
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
-        }
-    </script>
+  function sumBy(arr,type){return arr.filter(function(t){return t.type===type}).reduce(function(s,t){return s+(t.total||t.amount*t.qty)},0)}
+
+  var tInc=sumBy(todayTx,'income'),tExp=sumBy(todayTx,'expense');
+  var wInc=sumBy(weekTx,'income'),wExp=sumBy(weekTx,'expense');
+  var mInc=sumBy(monthTx,'income'),mExp=sumBy(monthTx,'expense');
+
+  var topItem='—';var topCount=0;
+  var itemCounts={};
+  todayTx.filter(function(t){return t.type==='income'}).forEach(function(t){
+    itemCounts[t.item]=(itemCounts[t.item]||0)+(t.qty||1);
+  });
+  Object.keys(itemCounts).forEach(function(k){if(itemCounts[k]>topCount){topCount=itemCounts[k];topItem=k}});
+
+  var days=[];
+  for(var i=6;i>=0;i--){
+    var d=new Date(now);d.setDate(d.getDate()-i);
+    var ds=startOfDay(d);var de=endOfDay(d);
+    var dayInc=allTx.filter(function(t){var td=new Date(t.date);return td>=ds&&td<=de&&t.type==='income'}).reduce(function(s,t){return s+(t.total||t.amount*t.qty)},0);
+    days.push({label:d.toLocaleDateString('en-US',{weekday:'short'}),value:dayInc,date:d});
+  }
+  var maxDay=Math.max.apply(null,days.map(function(d){return d.value}))||1;
+
+  var chartHtml='<div class="chart-bars">';
+  days.forEach(function(d){
+    var h=Math.max(2,Math.round(d.value/maxDay*120));
+    chartHtml+='<div class="chart-bar-wrap"><div class="chart-value">'+fc(d.value).replace(CURRENCY,'')+'</div><div class="chart-bar" style="height:'+h+'px"></div><div class="chart-label">'+d.label+'</div></div>';
+  });
+  chartHtml+='</div>';
+
+  el.innerHTML='<div class="card"><div class="card-header"><h3>📊 Today</h3><span style="font-size:13px;color:var(--text2)">'+todayTx.length+' transactions</span></div>'
+    +'<div class="stat-grid">'
+    +'<div class="stat-card"><div class="stat-label">Income</div><div class="stat-value sm income-text">'+fc(tInc)+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-value sm expense-text">'+fc(tExp)+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value sm '+(tInc-tExp>=0?'income-text':'expense-text')+'">'+fc(tInc-tExp)+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Top Seller</div><div class="stat-value sm">'+esc(topItem)+'</div></div>'
+    +'</div></div>'
+    +'<div class="card"><h3>📈 Last 7 Days Revenue</h3><div class="chart-container">'+chartHtml+'</div></div>'
+    +'<div class="card"><div class="card-header"><h3>This Week</h3></div><div class="stat-grid">'
+    +'<div class="stat-card"><div class="stat-label">Income</div><div class="stat-value sm income-text">'+fc(wInc)+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-value sm expense-text">'+fc(wExp)+'</div></div>'
+    +'</div><div style="margin-top:8px;font-size:15px;font-weight:600">Net: <span class="'+(wInc-wExp>=0?'income-text':'expense-text')+'">'+fc(wInc-wExp)+'</span></div></div>'
+    +'<div class="card"><div class="card-header"><h3>This Month</h3></div><div class="stat-grid">'
+    +'<div class="stat-card"><div class="stat-label">Income</div><div class="stat-value sm income-text">'+fc(mInc)+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-value sm expense-text">'+fc(mExp)+'</div></div>'
+    +'</div><div style="margin-top:8px;font-size:15px;font-weight:600">Net: <span class="'+(mInc-mExp>=0?'income-text':'expense-text')+'">'+fc(mInc-mExp)+'</span></div></div>';
+}
+
+
+async function renderTransactions(){
+  var el=document.getElementById('tab-transactions');
+  await loadCats();
+  var allTx=await db.transactions.toArray();
+  allTx.sort(function(a,b){return new Date(b.date)-new Date(a.date)});
+
+  var filtered=allTx.filter(function(t){
+    if(txFilterType!=='all'&&t.type!==txFilterType)return false;
+    if(txSearchText){
+      var s=txSearchText.toLowerCase();
+      if((t.item||'').toLowerCase().indexOf(s)===-1&&(t.notes||'').toLowerCase().indexOf(s)===-1)return false;
+    }
+    if(txDateFrom){var df=new Date(txDateFrom);if(new Date(t.date)<startOfDay(df))return false}
+    if(txDateTo){var dt=new Date(txDateTo);if(new Date(t.date)>endOfDay(dt))return false}
+    return true;
+  });
+
+  var groups={};
+  filtered.forEach(function(t){
+    var k=dateKey(t.date);
+    if(!groups[k])groups[k]={date:t.date,items:[],total:0};
+    groups[k].items.push(t);
+    var amt=t.total||(t.amount*(t.qty||1));
+    groups[k].total+=t.type==='income'?amt:-amt;
+  });
+
+  var html='<div class="search-bar"><input type="text" id="tx-search" placeholder="Search transactions..." value="'+esc(txSearchText)+'" oninput="txSearchText=this.value;renderTransactions()"></div>';
+  html+='<div class="filter-row">';
+  ['all','income','expense'].forEach(function(f){
+    html+='<div class="filter-chip'+(txFilterType===f?' active':'')+'" onclick="txFilterType=\''+f+'\';renderTransactions()">'+f.charAt(0).toUpperCase()+f.slice(1)+'</div>';
+  });
+  html+='<input type="date" id="tx-date-from" value="'+txDateFrom+'" onchange="txDateFrom=this.value;renderTransactions()" style="width:130px;min-height:36px;padding:6px 8px;font-size:13px;margin:0">';
+  html+='<input type="date" id="tx-date-to" value="'+txDateTo+'" onchange="txDateTo=this.value;renderTransactions()" style="width:130px;min-height:36px;padding:6px 8px;font-size:13px;margin:0">';
+  html+='</div>';
+
+  var keys=Object.keys(groups).sort().reverse();
+  if(keys.length===0){
+    html+='<div class="empty-state"><div class="empty-icon">💰</div><p>No transactions yet.<br>Tap + to record your first sale!</p></div>';
+  }else{
+    keys.forEach(function(k){
+      var g=groups[k];
+      html+='<div class="date-group"><div class="date-group-header"><span>'+fmtDate(g.date)+'</span><span class="'+(g.total>=0?'income-text':'expense-text')+'">'+fc(Math.abs(g.total))+'</span></div>';
+      g.items.forEach(function(t){
+        var cat=getCat(t.categoryId);
+        var amt=t.total||(t.amount*(t.qty||1));
+        html+='<div class="tx-item" onclick="showTxModal('+t.id+')">'
+          +'<div class="tx-icon" style="background:'+cat.color+'20">'+cat.icon+'</div>'
+          +'<div class="tx-info"><div class="tx-name">'+esc(t.item)+(t.qty>1?' x'+t.qty:'')+'</div><div class="tx-cat">'+esc(cat.name)+'</div></div>'
+          +'<div class="tx-right"><div class="tx-amount '+(t.type==='income'?'income-text':'expense-text')+'">'+(t.type==='expense'?'-':'')+fc(amt)+'</div><div class="tx-time">'+fmtTime(t.date)+'</div></div>'
+          +'</div>';
+      });
+      html+='</div>';
+    });
+  }
+  el.innerHTML=html;
+}
+
+async function showTxModal(editId){
+  await loadCats();
+  var tx=editId?await db.transactions.get(editId):null;
+  var type=tx?tx.type:'income';
+  var cats=catCache.filter(function(c){return c.type===type});
+
+  var html='<div class="modal-header"><h3>'+(tx?'Edit':'New')+' Transaction</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+  html+='<div class="form-group"><div class="form-label">Type</div><div class="toggle-group">'
+    +'<button class="toggle-btn'+(type==='income'?' active':'')+'" onclick="txModalToggleType(\'income\','+editId+')">Income</button>'
+    +'<button class="toggle-btn'+(type==='expense'?' active':'')+'" onclick="txModalToggleType(\'expense\','+editId+')">Expense</button>'
+    +'</div></div>';
+  html+='<div class="form-group"><div class="form-label">Category</div><select id="m-cat">';
+  cats.forEach(function(c){html+='<option value="'+c.id+'"'+(tx&&tx.categoryId===c.id?' selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>'});
+  html+='</select></div>';
+  html+='<div class="form-group"><div class="form-label">Item Name</div><input type="text" id="m-item" value="'+esc(tx?tx.item:'')+'" placeholder="e.g. Sourdough Bread"></div>';
+  html+='<div class="form-group"><div class="form-label">Amount</div><input type="number" id="m-amount" value="'+(tx?tx.amount:'')+'" placeholder="0.00" step="any" inputmode="decimal"></div>';
+  html+='<div class="form-group"><div class="form-label">Quantity</div><input type="number" id="m-qty" value="'+(tx?tx.qty:1)+'" placeholder="1" min="1" inputmode="numeric"></div>';
+  html+='<div class="form-group"><div class="form-label">Notes</div><textarea id="m-notes" placeholder="Optional notes">'+esc(tx?tx.notes:'')+'</textarea></div>';
+  html+='<div class="form-group"><div class="form-label">Date & Time</div><input type="datetime-local" id="m-date" value="'+(tx?toLocalISO(new Date(tx.date)):toLocalISO(new Date()))+'"></div>';
+  html+='<button class="btn btn-primary btn-block" onclick="saveTx('+(editId||'null')+')">Save Transaction</button>';
+  if(tx){
+    html+='<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="deleteTx('+tx.id+')">Delete Transaction</button>';
+  }
+  showModal(html);
+}
+
+var _txModalType='income';
+function txModalToggleType(type,editId){
+  _txModalType=type;
+  var cats=catCache.filter(function(c){return c.type===type});
+  var sel=document.getElementById('m-cat');
+  if(sel){
+    sel.innerHTML='';
+    cats.forEach(function(c){sel.innerHTML+='<option value="'+c.id+'">'+c.icon+' '+esc(c.name)+'</option>'});
+  }
+  document.querySelectorAll('.toggle-btn').forEach(function(b){b.classList.remove('active')});
+  event.target.classList.add('active');
+}
+
+async function saveTx(editId){
+  var catId=parseInt(document.getElementById('m-cat').value);
+  var item=document.getElementById('m-item').value.trim();
+  var amount=parseFloat(document.getElementById('m-amount').value);
+  var qty=parseInt(document.getElementById('m-qty').value)||1;
+  var notes=document.getElementById('m-notes').value.trim();
+  var date=document.getElementById('m-date').value;
+  if(!item||isNaN(amount)){showToast('Please fill item and amount');return}
+  var type=document.querySelector('.toggle-btn.active').textContent.toLowerCase();
+  var obj={type:type,categoryId:catId,item:item,amount:amount,qty:qty,total:amount*qty,notes:notes,date:new Date(date).toISOString()};
+  if(editId){await db.transactions.update(editId,obj);showToast('Transaction updated')}
+  else{await db.transactions.add(obj);showToast('Transaction saved')}
+  hideModal();renderTransactions();
+}
+
+async function deleteTx(id){
+  if(!confirm('Delete this transaction?'))return;
+  await db.transactions.delete(id);
+  hideModal();showToast('Transaction deleted');renderTransactions();
+}
+
+
+async function renderProducts(){
+  var el=document.getElementById('tab-products');
+  await loadCats();
+  var products=await db.products.toArray();
+  var incomeCats=catCache.filter(function(c){return c.type==='income'});
+
+  var grouped={};
+  incomeCats.forEach(function(c){grouped[c.id]={cat:c,items:[]}});
+  products.forEach(function(p){
+    if(grouped[p.categoryId])grouped[p.categoryId].items.push(p);
+    else{
+      if(!grouped['other'])grouped['other']={cat:{name:'Uncategorized',icon:'📦',color:'#8e8e93'},items:[]};
+      grouped['other'].items.push(p);
+    }
+  });
+
+  var html='';
+  if(products.length===0){
+    html='<div class="empty-state"><div class="empty-icon">🧁</div><p>No products yet.<br>Add your bakery items for quick sales!</p></div>';
+  }else{
+    Object.keys(grouped).forEach(function(k){
+      var g=grouped[k];
+      if(g.items.length===0)return;
+      html+='<div class="product-cat-group"><div class="product-cat-header">'+g.cat.icon+' '+esc(g.cat.name)+'</div><div class="product-grid">';
+      g.items.forEach(function(p){
+        html+='<div class="product-card" onclick="quickSale('+p.id+')">'
+          +'<button class="p-edit" onclick="event.stopPropagation();showProductModal('+p.id+')">✏️</button>'
+          +'<div class="p-emoji">'+g.cat.icon+'</div>'
+          +'<div class="p-name">'+esc(p.name)+'</div>'
+          +'<div class="p-price">'+fc(p.price)+'</div>'
+          +'</div>';
+      });
+      html+='</div></div>';
+    });
+  }
+  el.innerHTML=html;
+}
+
+async function showProductModal(editId){
+  await loadCats();
+  var p=editId?await db.products.get(editId):null;
+  var incomeCats=catCache.filter(function(c){return c.type==='income'});
+
+  var html='<div class="modal-header"><h3>'+(p?'Edit':'New')+' Product</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+  html+='<div class="form-group"><div class="form-label">Product Name</div><input type="text" id="mp-name" value="'+esc(p?p.name:'')+'" placeholder="e.g. Sourdough Loaf"></div>';
+  html+='<div class="form-group"><div class="form-label">Default Price</div><input type="number" id="mp-price" value="'+(p?p.price:'')+'" placeholder="0.00" step="any" inputmode="decimal"></div>';
+  html+='<div class="form-group"><div class="form-label">Category</div><select id="mp-cat">';
+  incomeCats.forEach(function(c){html+='<option value="'+c.id+'"'+(p&&p.categoryId===c.id?' selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>'});
+  html+='</select></div>';
+  html+='<button class="btn btn-primary btn-block" onclick="saveProduct('+(editId||'null')+')">Save Product</button>';
+  if(p){
+    html+='<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="deleteProduct('+p.id+')">Delete Product</button>';
+  }
+  showModal(html);
+}
+
+async function saveProduct(editId){
+  var name=document.getElementById('mp-name').value.trim();
+  var price=parseFloat(document.getElementById('mp-price').value);
+  var catId=parseInt(document.getElementById('mp-cat').value);
+  if(!name||isNaN(price)){showToast('Please fill name and price');return}
+  var obj={name:name,price:price,categoryId:catId};
+  if(editId){await db.products.update(editId,obj);showToast('Product updated')}
+  else{await db.products.add(obj);showToast('Product added')}
+  hideModal();renderProducts();
+}
+
+async function deleteProduct(id){
+  if(!confirm('Delete this product?'))return;
+  await db.products.delete(id);
+  hideModal();showToast('Product deleted');renderProducts();
+}
+
+async function quickSale(productId){
+  var p=await db.products.get(productId);
+  if(!p)return;
+  switchTab('transactions');
+  await loadCats();
+  _txModalType='income';
+  var cats=catCache.filter(function(c){return c.type==='income'});
+  var html='<div class="modal-header"><h3>Quick Sale</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+  html+='<div class="form-group"><div class="form-label">Type</div><div class="toggle-group">'
+    +'<button class="toggle-btn active" onclick="txModalToggleType(\'income\',null)">Income</button>'
+    +'<button class="toggle-btn" onclick="txModalToggleType(\'expense\',null)">Expense</button>'
+    +'</div></div>';
+  html+='<div class="form-group"><div class="form-label">Category</div><select id="m-cat">';
+  cats.forEach(function(c){html+='<option value="'+c.id+'"'+(p.categoryId===c.id?' selected':'')+'>'+c.icon+' '+esc(c.name)+'</option>'});
+  html+='</select></div>';
+  html+='<div class="form-group"><div class="form-label">Item Name</div><input type="text" id="m-item" value="'+esc(p.name)+'"></div>';
+  html+='<div class="form-group"><div class="form-label">Amount</div><input type="number" id="m-amount" value="'+p.price+'" step="any" inputmode="decimal"></div>';
+  html+='<div class="form-group"><div class="form-label">Quantity</div><input type="number" id="m-qty" value="1" min="1" inputmode="numeric"></div>';
+  html+='<div class="form-group"><div class="form-label">Notes</div><textarea id="m-notes" placeholder="Optional notes"></textarea></div>';
+  html+='<div class="form-group"><div class="form-label">Date & Time</div><input type="datetime-local" id="m-date" value="'+toLocalISO(new Date())+'"></div>';
+  html+='<button class="btn btn-success btn-block" onclick="saveTx(null)">💰 Record Sale</button>';
+  showModal(html);
+}
+
+
+async function renderReports(){
+  var el=document.getElementById('tab-reports');
+  await loadCats();
+  var now=new Date();
+  var html='<div class="card"><h3>📈 Reports</h3>';
+  html+='<div class="filter-row" id="report-presets">';
+  ['Today','This Week','This Month','This Year','Custom'].forEach(function(p){
+    html+='<div class="filter-chip'+(p==='This Month'?' active':'')+'" onclick="setReportRange(\''+p+'\',this)">'+p+'</div>';
+  });
+  html+='</div>';
+  html+='<div class="date-range-row" id="report-custom-dates" style="display:none">'
+    +'<input type="date" id="rpt-from" onchange="updateReport()">'
+    +'<input type="date" id="rpt-to" onchange="updateReport()">'
+    +'</div>';
+  html+='</div>';
+  html+='<div id="report-content"></div>';
+  el.innerHTML=html;
+  setReportRange('This Month',document.querySelector('#report-presets .filter-chip.active'));
+}
+
+function setReportRange(preset,chip){
+  document.querySelectorAll('#report-presets .filter-chip').forEach(function(c){c.classList.remove('active')});
+  if(chip)chip.classList.add('active');
+  var now=new Date();var from,to;
+  if(preset==='Today'){from=startOfDay(now);to=endOfDay(now)}
+  else if(preset==='This Week'){from=getMonday(now);to=endOfDay(now)}
+  else if(preset==='This Month'){from=startOfMonth(now);to=endOfDay(now)}
+  else if(preset==='This Year'){from=startOfYear(now);to=endOfDay(now)}
+  else if(preset==='Custom'){
+    document.getElementById('report-custom-dates').style.display='flex';
+    return;
+  }
+  document.getElementById('report-custom-dates').style.display='none';
+  window._rptFrom=from;window._rptTo=to;
+  updateReport();
+}
+
+async function updateReport(){
+  var from=window._rptFrom;var to=window._rptTo;
+  var cf=document.getElementById('rpt-from');
+  var ct=document.getElementById('rpt-to');
+  if(cf&&cf.value&&ct&&ct.value){from=startOfDay(new Date(cf.value));to=endOfDay(new Date(ct.value))}
+  if(!from||!to)return;
+
+  var allTx=await db.transactions.toArray();
+  var filtered=allTx.filter(function(t){var d=new Date(t.date);return d>=from&&d<=to});
+
+  var totalInc=0,totalExp=0;
+  var catTotals={};
+  var dailyMap={};
+
+  filtered.forEach(function(t){
+    var amt=t.total||(t.amount*(t.qty||1));
+    if(t.type==='income')totalInc+=amt;else totalExp+=amt;
+    var ck=t.categoryId+'_'+t.type;
+    if(!catTotals[ck])catTotals[ck]={catId:t.categoryId,type:t.type,total:0};
+    catTotals[ck].total+=amt;
+    var dk=dateKey(t.date);
+    if(!dailyMap[dk])dailyMap[dk]={date:t.date,inc:0,exp:0};
+    if(t.type==='income')dailyMap[dk].inc+=amt;else dailyMap[dk].exp+=amt;
+  });
+
+  var net=totalInc-totalExp;
+  var html='<div class="card"><h3>Profit & Loss</h3>'
+    +'<div style="padding:8px 0;font-size:16px"><div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>Total Income</span><span class="income-text" style="font-weight:700">'+fc(totalInc)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>Total Expenses</span><span class="expense-text" style="font-weight:700">'+fc(totalExp)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700;font-size:18px"><span>Net Profit</span><span class="'+(net>=0?'income-text':'expense-text')+'">'+fc(net)+'</span></div>'
+    +'</div></div>';
+
+  var incCats=Object.values(catTotals).filter(function(c){return c.type==='income'}).sort(function(a,b){return b.total-a.total});
+  var expCats=Object.values(catTotals).filter(function(c){return c.type==='expense'}).sort(function(a,b){return b.total-a.total});
+
+  if(incCats.length>0){
+    html+='<div class="card"><h3>Income by Category</h3><table class="report-table"><thead><tr><th></th><th>Category</th><th class="text-right">Amount</th><th class="text-right">%</th></tr></thead><tbody>';
+    incCats.forEach(function(c){
+      var cat=getCat(c.catId);
+      var pct=totalInc>0?(c.total/totalInc*100).toFixed(1):'0.0';
+      html+='<tr><td>'+cat.icon+'</td><td>'+esc(cat.name)+'</td><td class="text-right income-text">'+fc(c.total)+'</td><td class="text-right">'+pct+'%</td></tr>';
+    });
+    html+='<tr class="total-row"><td></td><td>Total</td><td class="text-right">'+fc(totalInc)+'</td><td class="text-right">100%</td></tr>';
+    html+='</tbody></table></div>';
+  }
+
+  if(expCats.length>0){
+    html+='<div class="card"><h3>Expenses by Category</h3><table class="report-table"><thead><tr><th></th><th>Category</th><th class="text-right">Amount</th><th class="text-right">%</th></tr></thead><tbody>';
+    expCats.forEach(function(c){
+      var cat=getCat(c.catId);
+      var pct=totalExp>0?(c.total/totalExp*100).toFixed(1):'0.0';
+      html+='<tr><td>'+cat.icon+'</td><td>'+esc(cat.name)+'</td><td class="text-right expense-text">'+fc(c.total)+'</td><td class="text-right">'+pct+'%</td></tr>';
+    });
+    html+='<tr class="total-row"><td></td><td>Total</td><td class="text-right">'+fc(totalExp)+'</td><td class="text-right">100%</td></tr>';
+    html+='</tbody></table></div>';
+  }
+
+  var dailyKeys=Object.keys(dailyMap).sort().reverse();
+  if(dailyKeys.length>0){
+    html+='<div class="card"><h3>Daily Summary</h3><table class="report-table"><thead><tr><th>Date</th><th class="text-right">Income</th><th class="text-right">Expenses</th><th class="text-right">Net</th></tr></thead><tbody>';
+    var dTotInc=0,dTotExp=0;
+    dailyKeys.forEach(function(k){
+      var d=dailyMap[k];dTotInc+=d.inc;dTotExp+=d.exp;
+      var dNet=d.inc-d.exp;
+      html+='<tr><td>'+fmtDateShort(d.date)+'</td><td class="text-right income-text">'+fc(d.inc)+'</td><td class="text-right expense-text">'+fc(d.exp)+'</td><td class="text-right '+(dNet>=0?'income-text':'expense-text')+'">'+fc(dNet)+'</td></tr>';
+    });
+    html+='<tr class="total-row"><td>Total</td><td class="text-right">'+fc(dTotInc)+'</td><td class="text-right">'+fc(dTotExp)+'</td><td class="text-right '+(dTotInc-dTotExp>=0?'income-text':'expense-text')+'">'+fc(dTotInc-dTotExp)+'</td></tr>';
+    html+='</tbody></table></div>';
+  }
+
+  if(filtered.length===0){
+    html='<div class="empty-state"><div class="empty-icon">📈</div><p>No transactions in this period.</p></div>';
+  }
+  document.getElementById('report-content').innerHTML=html;
+}
+
+
+async function renderSettings(){
+  var el=document.getElementById('tab-settings');
+  await loadSettings();
+  var html='<div class="card"><h3>⚙️ Settings</h3>'
+    +'<div class="setting-row"><span class="setting-label">Business Name</span><input class="setting-input" type="text" id="s-biz" value="'+esc(BUSINESS)+'" onchange="saveSetting(\'businessName\',this.value)"></div>'
+    +'<div class="setting-row"><span class="setting-label">Currency Symbol</span><input class="setting-input" type="text" id="s-cur" value="'+esc(CURRENCY)+'" maxlength="5" onchange="saveSetting(\'currency\',this.value)"></div>'
+    +'</div>';
+
+  html+='<div class="card"><h3>📂 Categories</h3><p style="font-size:13px;color:var(--text2);margin-bottom:12px">Manage income and expense categories</p>'
+    +'<button class="btn btn-primary btn-block" onclick="showCategoriesPanel()">Manage Categories</button></div>';
+
+  html+='<div class="card"><h3>📤 Export Data</h3>'
+    +'<button class="btn btn-success btn-block" style="margin-bottom:8px" onclick="exportCSV()">Export Transactions (CSV)</button>'
+    +'<button class="btn btn-accent btn-block" onclick="exportJSON()">Export Full Backup (JSON)</button></div>';
+
+  html+='<div class="card"><h3>📥 Import Data</h3>'
+    +'<button class="btn btn-primary btn-block" style="margin-bottom:8px" onclick="document.getElementById(\'import-csv\').click()">Import Transactions (CSV)</button>'
+    +'<input type="file" id="import-csv" accept=".csv" style="display:none" onchange="importCSV(event)">'
+    +'<button class="btn btn-accent btn-block" onclick="document.getElementById(\'import-json\').click()">Import Full Backup (JSON)</button>'
+    +'<input type="file" id="import-json" accept=".json" style="display:none" onchange="importJSON(event)">'
+    +'</div>';
+
+  html+='<div class="danger-zone"><h3>⚠️ Danger Zone</h3><p style="font-size:13px;color:var(--text2);margin-bottom:12px">This will permanently delete all your data.</p>'
+    +'<button class="btn btn-danger btn-block" onclick="clearAllData()">Clear All Data</button></div>';
+
+  el.innerHTML=html;
+}
+
+async function saveSetting(key,value){
+  await db.settings.put({key:key,value:value});
+  if(key==='currency'){CURRENCY=value}
+  if(key==='businessName'){BUSINESS=value;document.getElementById('header-title').textContent=value}
+  showToast('Setting saved');
+}
+
+async function showCategoriesPanel(){
+  await loadCats();
+  var html='<div class="modal-header"><h3>Manage Categories</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+  html+='<button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="showCatEditModal(null)">+ Add Category</button>';
+
+  var income=catCache.filter(function(c){return c.type==='income'});
+  var expense=catCache.filter(function(c){return c.type==='expense'});
+
+  if(income.length>0){
+    html+='<div class="section-title">Income Categories</div>';
+    income.forEach(function(c){
+      html+='<div class="cat-item" onclick="showCatEditModal('+c.id+')">'
+        +'<div class="cat-icon" style="background:'+c.color+'20">'+c.icon+'</div>'
+        +'<span class="cat-name">'+esc(c.name)+'</span>'
+        +'<div class="color-dot" style="background:'+c.color+'"></div>'
+        +'<span class="badge badge-income">Income</span>'
+        +'</div>';
+    });
+  }
+  if(expense.length>0){
+    html+='<div class="section-title">Expense Categories</div>';
+    expense.forEach(function(c){
+      html+='<div class="cat-item" onclick="showCatEditModal('+c.id+')">'
+        +'<div class="cat-icon" style="background:'+c.color+'20">'+c.icon+'</div>'
+        +'<span class="cat-name">'+esc(c.name)+'</span>'
+        +'<div class="color-dot" style="background:'+c.color+'"></div>'
+        +'<span class="badge badge-expense">Expense</span>'
+        +'</div>';
+    });
+  }
+  showModal(html);
+}
+
+async function showCatEditModal(editId){
+  var c=editId?await db.categories.get(editId):null;
+  var html='<div class="modal-header"><h3>'+(c?'Edit':'New')+' Category</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+  html+='<div class="form-group"><div class="form-label">Name</div><input type="text" id="mc-name" value="'+esc(c?c.name:'')+'" placeholder="Category name"></div>';
+  html+='<div class="form-group"><div class="form-label">Type</div><div class="toggle-group">'
+    +'<button class="toggle-btn'+(!c||c.type==='income'?' active':'')+'" onclick="document.querySelectorAll(\'.toggle-btn\').forEach(function(b){b.classList.remove(\'active\')});this.classList.add(\'active\')">Income</button>'
+    +'<button class="toggle-btn'+(c&&c.type==='expense'?' active':'')+'" onclick="document.querySelectorAll(\'.toggle-btn\').forEach(function(b){b.classList.remove(\'active\')});this.classList.add(\'active\')">Expense</button>'
+    +'</div></div>';
+  html+='<div class="form-group"><div class="form-label">Icon (emoji)</div><input type="text" id="mc-icon" value="'+(c?c.icon:'🏷️')+'" placeholder="🏷️" maxlength="4"></div>';
+  html+='<div class="form-group"><div class="form-label">Color</div><input type="color" id="mc-color" value="'+(c?c.color:'#5856d6')+'"></div>';
+  html+='<button class="btn btn-primary btn-block" onclick="saveCat('+(editId||'null')+')">Save Category</button>';
+  if(c){
+    html+='<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="deleteCat('+c.id+')">Delete Category</button>';
+  }
+  showModal(html);
+}
+
+async function saveCat(editId){
+  var name=document.getElementById('mc-name').value.trim();
+  var icon=document.getElementById('mc-icon').value.trim()||'🏷️';
+  var color=document.getElementById('mc-color').value;
+  var type=document.querySelector('.toggle-btn.active').textContent.toLowerCase();
+  if(!name){showToast('Please enter a name');return}
+  var obj={name:name,type:type,icon:icon,color:color};
+  if(editId){await db.categories.update(editId,obj);showToast('Category updated')}
+  else{await db.categories.add(obj);showToast('Category added')}
+  await loadCats();
+  showCategoriesPanel();
+}
+
+async function deleteCat(id){
+  var count=await db.transactions.where('categoryId').equals(id).count();
+  if(count>0){
+    if(!confirm('This category has '+count+' transactions. Delete anyway? Transactions will keep their data but show as "Unknown" category.'))return;
+  }else{
+    if(!confirm('Delete this category?'))return;
+  }
+  await db.categories.delete(id);
+  await loadCats();
+  showToast('Category deleted');
+  showCategoriesPanel();
+}
+
+async function exportCSV(){
+  var txs=await db.transactions.toArray();
+  if(txs.length===0){showToast('No transactions to export');return}
+  await loadCats();
+  var csv='ID,Type,Category,Item,Amount,Quantity,Total,Notes,Date\n';
+  txs.forEach(function(t){
+    var cat=getCat(t.categoryId);
+    var total=t.total||(t.amount*(t.qty||1));
+    csv+=t.id+',"'+t.type+'","'+(cat.name||'').replace(/"/g,'""')+'","'+(t.item||'').replace(/"/g,'""')+'",'+t.amount+','+(t.qty||1)+','+total.toFixed(2)+',"'+(t.notes||'').replace(/"/g,'""')+'","'+t.date+'"\n';
+  });
+  downloadFile(csv,'text/csv','Bakery_Transactions_'+dateKey(new Date())+'.csv');
+  showToast('CSV exported');
+}
+
+async function exportJSON(){
+  var data={
+    transactions:await db.transactions.toArray(),
+    categories:await db.categories.toArray(),
+    products:await db.products.toArray(),
+    settings:await db.settings.toArray(),
+    exportDate:new Date().toISOString(),
+    version:1
+  };
+  downloadFile(JSON.stringify(data,null,2),'application/json','Bakery_Backup_'+dateKey(new Date())+'.json');
+  showToast('Backup exported');
+}
+
+function downloadFile(content,mime,filename){
+  var blob=new Blob([content],{type:mime+';charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+async function importCSV(event){
+  var file=event.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var rows=e.target.result.split('\n').slice(1);
+    var count=0;
+    for(var i=0;i<rows.length;i++){
+      var row=rows[i];if(!row.trim())continue;
+      var parts=row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      var type=(parts[1]||'income').replace(/"/g,'').trim();
+      var catName=(parts[2]||'').replace(/"/g,'').trim();
+      var item=(parts[3]||'Unknown').replace(/"/g,'').trim();
+      var amount=parseFloat(parts[4])||0;
+      var qty=parseInt(parts[5])||1;
+      var total=parseFloat(parts[6])||(amount*qty);
+      var notes=(parts[7]||'').replace(/"/g,'').trim();
+      var date=(parts[8]||'').replace(/"/g,'').trim()||new Date().toISOString();
+      var cat=catCache.find(function(c){return c.name===catName});
+      var catId=cat?cat.id:(catCache[0]?catCache[0].id:1);
+      await db.transactions.add({type:type,categoryId:catId,item:item,amount:amount,qty:qty,total:total,notes:notes,date:date});
+      count++;
+    }
+    showToast('Imported '+count+' transactions');
+    event.target.value='';
+    renderTab(currentTab);
+  };
+  reader.readAsText(file);
+}
+
+async function importJSON(event){
+  var file=event.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      if(!data.transactions||!data.categories){showToast('Invalid backup file');return}
+      if(!confirm('This will replace ALL current data. Continue?'))return;
+      await db.transactions.clear();
+      await db.categories.clear();
+      await db.products.clear();
+      await db.settings.clear();
+      if(data.categories.length)await db.categories.bulkAdd(data.categories.map(function(c){var o={name:c.name,type:c.type,color:c.color,icon:c.icon};return o}));
+      if(data.transactions.length)await db.transactions.bulkAdd(data.transactions.map(function(t){return{type:t.type,categoryId:t.categoryId,item:t.item,amount:t.amount,qty:t.qty||1,total:t.total||(t.amount*(t.qty||1)),notes:t.notes||'',date:t.date}}));
+      if(data.products&&data.products.length)await db.products.bulkAdd(data.products.map(function(p){return{name:p.name,price:p.price,categoryId:p.categoryId}}));
+      if(data.settings&&data.settings.length)await db.settings.bulkPut(data.settings);
+      await loadCats();await loadSettings();
+      showToast('Backup restored successfully');
+      event.target.value='';
+      renderTab(currentTab);
+    }catch(err){showToast('Error reading backup: '+err.message)}
+  };
+  reader.readAsText(file);
+}
+
+async function clearAllData(){
+  var name=prompt('Type your business name "'+BUSINESS+'" to confirm deletion:');
+  if(name!==BUSINESS){showToast('Name did not match. Cancelled.');return}
+  await db.transactions.clear();
+  await db.categories.clear();
+  await db.products.clear();
+  await db.settings.clear();
+  await db.categories.bulkAdd(DEFAULT_CATS);
+  await db.settings.bulkPut([{key:'currency',value:'$'},{key:'businessName',value:'My Bakery'}]);
+  await loadCats();await loadSettings();
+  showToast('All data cleared');
+  renderTab(currentTab);
+}
+
+async function init(){
+  await seedDB();
+  renderDashboard();
+}
+
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js')}
+init();
+</script>
 </body>
 </html>
