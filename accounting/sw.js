@@ -1,10 +1,12 @@
-var CACHE_NAME = 'bakery-accounting-v4';
+var CACHE_NAME = 'bakery-accounting-v5';
 var DEXIE_CDN = 'https://unpkg.com/dexie@4/dist/dexie.min.js';
+var WEBBLE_CDN = 'https://ioswebble.com/webble.js';
 var ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  DEXIE_CDN
+  DEXIE_CDN,
+  WEBBLE_CDN
 ];
 
 self.addEventListener('install', function(e) {
