@@ -122,11 +122,31 @@ textarea{resize:vertical;min-height:60px}
 .date-range-row input{flex:1}
 .section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px}
 .hidden{display:none!important}
+.printer-status{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:6px 12px;border-radius:20px;background:var(--bg);cursor:pointer;border:none;color:var(--text2);min-height:36px}
+.printer-status.connected{color:var(--success);background:rgba(52,199,89,.1)}
+.printer-status .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text2);flex-shrink:0}
+.printer-status.connected .status-dot{background:var(--success)}
+.receipt-preview{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'Courier New',monospace;font-size:12px;line-height:1.5;max-width:320px;margin:12px auto;white-space:pre-wrap;word-break:break-word;min-height:200px}
+.receipt-preview .receipt-header{text-align:center;margin-bottom:8px}
+.receipt-preview .receipt-logo{max-width:120px;max-height:80px;margin:0 auto 8px;display:block}
+.receipt-preview .receipt-divider{border-top:1px dashed #333;margin:6px 0}
+.receipt-preview .receipt-line{display:flex;justify-content:space-between}
+.receipt-preview .receipt-total{font-weight:bold;font-size:14px}
+.receipt-preview .receipt-footer{text-align:center;margin-top:8px;font-size:11px;color:#666}
+.template-section{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
+.template-section-title{font-size:13px;font-weight:600;color:var(--primary);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.logo-upload-area{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color .15s;min-height:80px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.logo-upload-area:active{border-color:var(--primary)}
+.logo-upload-area img{max-width:120px;max-height:80px;border-radius:6px}
+.logo-upload-area .upload-hint{font-size:12px;color:var(--text2)}
+.print-icon-btn{width:36px;height:36px;border-radius:8px;border:none;background:rgba(88,86,214,.1);color:var(--primary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.print-icon-btn:active{opacity:.7}
 </style>
 </head>
 <body>
 <div id="app-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
 <h2 id="header-title">My Bakery</h2>
+<button class="printer-status" id="printer-status-btn" onclick="togglePrinterConnection()" title="Printer status"><span class="status-dot"></span><span id="printer-status-text">No Printer</span></button>
 </div>
 <div id="tab-dashboard" class="tab-content active"></div>
 <div id="tab-transactions" class="tab-content"></div>
@@ -153,6 +173,13 @@ db.version(1).stores({
   products: '++id, name, price, categoryId',
   settings: 'key'
 });
+db.version(2).stores({
+  transactions: '++id, type, categoryId, item, amount, qty, total, notes, date',
+  categories: '++id, name, type, color, icon',
+  products: '++id, name, price, categoryId',
+  settings: 'key',
+  receiptTemplates: '++id, name'
+});
 
 var CURRENCY = '$';
 var BUSINESS = 'My Bakery';
@@ -162,6 +189,21 @@ var txFilterType = 'all';
 var txSearchText = '';
 var txDateFrom = '';
 var txDateTo = '';
+var printerDevice = null;
+var printerCharacteristic = null;
+var printerConnected = false;
+var printerName = '';
+var receiptTemplate = null;
+var PRINTER_CHUNK_SIZE = 100;
+var PRINTER_WRITE_DELAY = 30;
+var PRINTER_SERVICES = [
+  '000018f0-0000-1000-8000-00805f9b34fb',
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+];
+var PRINTER_CHARACTERISTICS = [
+  '00002af1-0000-1000-8000-00805f9b34fb',
+  '49535343-8841-43f4-a8d4-ecbe34729bb3'
+];
 
 var DEFAULT_CATS = [
   {name:'Bread',type:'income',color:'#FF9500',icon:'🍞'},
@@ -376,6 +418,7 @@ async function renderTransactions(){
           +'<div class="tx-icon" style="background:'+cat.color+'20">'+cat.icon+'</div>'
           +'<div class="tx-info"><div class="tx-name">'+esc(t.item)+(t.qty>1?' x'+t.qty:'')+'</div><div class="tx-cat">'+esc(cat.name)+'</div></div>'
           +'<div class="tx-right"><div class="tx-amount '+(t.type==='income'?'income-text':'expense-text')+'">'+(t.type==='expense'?'-':'')+fc(amt)+'</div><div class="tx-time">'+fmtTime(t.date)+'</div></div>'
+          +'<button class="print-icon-btn" onclick="event.stopPropagation();showPrintPreview('+t.id+')" title="Print receipt">🖨️</button>'
           +'</div>';
       });
       html+='</div>';
@@ -405,6 +448,7 @@ async function showTxModal(editId){
   html+='<div class="form-group"><div class="form-label">Date & Time</div><input type="datetime-local" id="m-date" value="'+(tx?toLocalISO(new Date(tx.date)):toLocalISO(new Date()))+'"></div>';
   html+='<button class="btn btn-primary btn-block" onclick="saveTx('+(editId||'null')+')">Save Transaction</button>';
   if(tx){
+    html+='<button class="btn btn-accent btn-block" style="margin-top:8px" onclick="showPrintPreview('+tx.id+')">🖨️ Print Receipt</button>';
     html+='<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="deleteTx('+tx.id+')">Delete Transaction</button>';
   }
   showModal(html);
@@ -672,6 +716,13 @@ async function renderSettings(){
     +'<button class="btn btn-success btn-block" style="margin-bottom:8px" onclick="exportCSV()">Export Transactions (CSV)</button>'
     +'<button class="btn btn-accent btn-block" onclick="exportJSON()">Export Full Backup (JSON)</button></div>';
 
+  html+='<div class="card"><h3>🖨️ Receipt Printer</h3>'
+    +'<div class="setting-row"><span class="setting-label">Printer</span><span id="s-printer-name" style="font-size:14px;color:var(--text2)">'+(printerConnected?esc(printerName):'Not connected')+'</span></div>'
+    +'<button class="btn '+(printerConnected?'btn-danger':'btn-primary')+' btn-block" style="margin-bottom:8px" onclick="togglePrinterConnection()">'+(printerConnected?'Disconnect Printer':'Connect Bluetooth Printer')+'</button>'
+    +'<button class="btn btn-accent btn-block" style="margin-bottom:8px" onclick="showTemplateEditor()">Edit Receipt Template</button>'
+    +'<button class="btn btn-outline btn-block" onclick="testPrint()">Test Print</button>'
+    +'</div>';
+
   html+='<div class="card"><h3>📥 Import Data</h3>'
     +'<button class="btn btn-primary btn-block" style="margin-bottom:8px" onclick="document.getElementById(\'import-csv\').click()">Import Transactions (CSV)</button>'
     +'<input type="file" id="import-csv" accept=".csv" style="display:none" onchange="importCSV(event)">'
@@ -872,8 +923,555 @@ async function clearAllData(){
   renderTab(currentTab);
 }
 
+
+// ===== BLUETOOTH PRINTER CONNECTION =====
+function updatePrinterUI(){
+  var btn=document.getElementById('printer-status-btn');
+  var txt=document.getElementById('printer-status-text');
+  if(!btn||!txt)return;
+  if(printerConnected){
+    btn.classList.add('connected');
+    txt.textContent=printerName||'Connected';
+  }else{
+    btn.classList.remove('connected');
+    txt.textContent='No Printer';
+  }
+}
+
+async function connectPrinter(){
+  if(!navigator.bluetooth){
+    showToast('Bluetooth not available. Use Chrome or install WebBLE for Safari.');
+    return false;
+  }
+  try{
+    var filters=PRINTER_SERVICES.map(function(s){return{services:[s]}});
+    printerDevice=await navigator.bluetooth.requestDevice({
+      filters:filters,
+      optionalServices:PRINTER_SERVICES
+    });
+    printerDevice.addEventListener('gattserverdisconnected',onPrinterDisconnect);
+    var server=await printerDevice.gatt.connect();
+    var service=null;var characteristic=null;
+    for(var si=0;si<PRINTER_SERVICES.length;si++){
+      try{
+        service=await server.getPrimaryService(PRINTER_SERVICES[si]);
+        for(var ci=0;ci<PRINTER_CHARACTERISTICS.length;ci++){
+          try{
+            characteristic=await service.getCharacteristic(PRINTER_CHARACTERISTICS[ci]);
+            break;
+          }catch(e){}
+        }
+        if(characteristic)break;
+      }catch(e){}
+    }
+    if(!characteristic){
+      var services=await server.getPrimaryServices();
+      for(var i=0;i<services.length&&!characteristic;i++){
+        var chars=await services[i].getCharacteristics();
+        for(var j=0;j<chars.length;j++){
+          if(chars[j].properties.write||chars[j].properties.writeWithoutResponse){
+            characteristic=chars[j];break;
+          }
+        }
+      }
+    }
+    if(!characteristic){showToast('Could not find printer write characteristic');return false}
+    printerCharacteristic=characteristic;
+    printerConnected=true;
+    printerName=printerDevice.name||'Thermal Printer';
+    await db.settings.put({key:'lastPrinterName',value:printerName});
+    updatePrinterUI();
+    showToast('Connected to '+printerName);
+    return true;
+  }catch(e){
+    if(e.name!=='NotFoundError')showToast('Connection failed: '+e.message);
+    return false;
+  }
+}
+
+function onPrinterDisconnect(){
+  printerConnected=false;
+  printerCharacteristic=null;
+  updatePrinterUI();
+  showToast('Printer disconnected');
+}
+
+async function disconnectPrinter(){
+  if(printerDevice&&printerDevice.gatt.connected){
+    printerDevice.gatt.disconnect();
+  }
+  printerConnected=false;
+  printerCharacteristic=null;
+  printerName='';
+  updatePrinterUI();
+  showToast('Printer disconnected');
+}
+
+async function togglePrinterConnection(){
+  if(printerConnected){await disconnectPrinter()}
+  else{await connectPrinter()}
+  if(currentTab==='settings')renderSettings();
+}
+
+async function sendToPrinter(data){
+  if(!printerConnected||!printerCharacteristic){
+    showToast('Printer not connected');return false;
+  }
+  var bytes=data instanceof Uint8Array?data:new Uint8Array(data);
+  try{
+    for(var i=0;i<bytes.length;i+=PRINTER_CHUNK_SIZE){
+      var chunk=bytes.slice(i,Math.min(i+PRINTER_CHUNK_SIZE,bytes.length));
+      if(printerCharacteristic.properties.writeWithoutResponse){
+        await printerCharacteristic.writeValueWithoutResponse(chunk);
+      }else{
+        await printerCharacteristic.writeValueWithResponse(chunk);
+      }
+      await new Promise(function(r){setTimeout(r,PRINTER_WRITE_DELAY)});
+    }
+    return true;
+  }catch(e){
+    showToast('Print error: '+e.message);
+    return false;
+  }
+}
+
+// ===== ESC/POS ENCODING =====
+var ESC=0x1b,GS=0x1d,LF=0x0a;
+function escposInit(){return[ESC,0x40]}
+function escposAlign(a){return[ESC,0x61,a==='center'?1:a==='right'?2:0]}
+function escposBold(on){return[ESC,0x45,on?1:0]}
+function escposSize(w,h){return[GS,0x21,((w-1)<<4)|(h-1)]}
+function escposFeed(n){return[ESC,0x64,n]}
+function escposCut(){return[GS,0x56,0x01]}
+function escposText(str){
+  var arr=[];
+  for(var i=0;i<str.length;i++){
+    var c=str.charCodeAt(i);
+    if(c<128)arr.push(c);
+    else arr.push(0x3f);
+  }
+  arr.push(LF);
+  return arr;
+}
+function escposDivider(cols){
+  var s='';for(var i=0;i<cols;i++)s+='-';
+  return escposText(s);
+}
+function escposLine(left,right,cols){
+  var gap=cols-left.length-right.length;
+  if(gap<1)gap=1;
+  var spaces='';for(var i=0;i<gap;i++)spaces+=' ';
+  return escposText(left+spaces+right);
+}
+
+function imageToEscposRaster(imageData,maxWidth){
+  maxWidth=maxWidth||384;
+  var w=imageData.width,h=imageData.height,d=imageData.data;
+  var scale=Math.min(1,maxWidth/w);
+  var sw=Math.floor(w*scale);
+  var sh=Math.floor(h*scale);
+  var bpr=Math.ceil(sw/8);
+  var bitmap=new Uint8Array(bpr*sh);
+  for(var y=0;y<sh;y++){
+    for(var x=0;x<sw;x++){
+      var sx=Math.floor(x/scale),sy=Math.floor(y/scale);
+      var idx=(sy*w+sx)*4;
+      var lum=0.299*d[idx]+0.587*d[idx+1]+0.114*d[idx+2];
+      var alpha=d[idx+3]/255;
+      lum=255-(255-lum)*alpha;
+      if(lum<128){
+        bitmap[y*bpr+Math.floor(x/8)]|=(1<<(7-(x%8)));
+      }
+    }
+  }
+  var cmd=[GS,0x76,0x30,0x00,bpr&0xff,(bpr>>8)&0xff,sh&0xff,(sh>>8)&0xff];
+  var result=new Uint8Array(cmd.length+bitmap.length);
+  result.set(cmd);result.set(bitmap,cmd.length);
+  return result;
+}
+
+function loadImageAsCanvas(src){
+  return new Promise(function(resolve,reject){
+    var img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=function(){
+      var c=document.createElement('canvas');
+      c.width=img.width;c.height=img.height;
+      var ctx=c.getContext('2d');
+      ctx.drawImage(img,0,0);
+      resolve({canvas:c,imageData:ctx.getImageData(0,0,c.width,c.height)});
+    };
+    img.onerror=function(){reject(new Error('Failed to load image'))};
+    img.src=src;
+  });
+}
+
+// ===== RECEIPT TEMPLATE SYSTEM =====
+var DEFAULT_TEMPLATE={
+  name:'Default',
+  header:{
+    showLogo:false,
+    logoData:'',
+    businessName:'{businessName}',
+    address:'',
+    phone:'',
+    customText:''
+  },
+  body:{
+    showCustomerName:true,
+    showCategory:true,
+    showNotes:true,
+    showQty:true
+  },
+  footer:{
+    message:'Thank you for your purchase!',
+    showDateTime:true,
+    showOrderId:true,
+    customText:''
+  },
+  paperWidth:48
+};
+
+async function loadReceiptTemplate(){
+  var tpl=await db.receiptTemplates.toCollection().first();
+  if(!tpl){
+    await db.receiptTemplates.add(JSON.parse(JSON.stringify(DEFAULT_TEMPLATE)));
+    tpl=await db.receiptTemplates.toCollection().first();
+  }
+  receiptTemplate=tpl;
+  return tpl;
+}
+
+async function saveReceiptTemplate(tpl){
+  if(tpl.id){
+    await db.receiptTemplates.update(tpl.id,tpl);
+  }else{
+    tpl.id=await db.receiptTemplates.add(tpl);
+  }
+  receiptTemplate=tpl;
+}
+
+// ===== PRINT PREVIEW & FLOW =====
+async function showPrintPreview(txId){
+  var tx=await db.transactions.get(txId);
+  if(!tx){showToast('Transaction not found');return}
+  await loadCats();
+  await loadSettings();
+  var tpl=await loadReceiptTemplate();
+  var cat=getCat(tx.categoryId);
+  var amt=tx.total||(tx.amount*(tx.qty||1));
+
+  var html='<div class="modal-header"><h3>🖨️ Print Receipt</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+
+  if(tpl.header.showCustomerName||tpl.body.showCustomerName){
+    html+='<div class="form-group"><div class="form-label">Customer Name (optional)</div><input type="text" id="print-customer" placeholder="e.g. John"></div>';
+  }
+
+  html+='<div class="receipt-preview" id="receipt-preview-box">';
+  html+=renderReceiptPreviewHTML(tpl,tx,cat,amt,'');
+  html+='</div>';
+
+  html+='<button class="btn btn-primary btn-block" style="margin-top:12px" onclick="executePrint('+txId+')">'+(printerConnected?'🖨️ Print Now':'🖨️ Connect & Print')+'</button>';
+  html+='<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="hideModal()">Cancel</button>';
+
+  showModal(html);
+
+  var custInput=document.getElementById('print-customer');
+  if(custInput){
+    custInput.addEventListener('input',function(){
+      var box=document.getElementById('receipt-preview-box');
+      if(box)box.innerHTML=renderReceiptPreviewHTML(tpl,tx,cat,amt,this.value);
+    });
+  }
+}
+
+function renderReceiptPreviewHTML(tpl,tx,cat,amt,customerName){
+  var h='<div class="receipt-header">';
+  if(tpl.header.showLogo&&tpl.header.logoData){
+    h+='<img class="receipt-logo" src="'+tpl.header.logoData+'" alt="Logo">';
+  }
+  var bizName=tpl.header.businessName.replace('{businessName}',BUSINESS);
+  h+='<div style="font-weight:bold;font-size:14px">'+esc(bizName)+'</div>';
+  if(tpl.header.address)h+='<div>'+esc(tpl.header.address)+'</div>';
+  if(tpl.header.phone)h+='<div>'+esc(tpl.header.phone)+'</div>';
+  if(tpl.header.customText)h+='<div>'+esc(tpl.header.customText)+'</div>';
+  h+='</div>';
+  h+='<div class="receipt-divider"></div>';
+
+  if(customerName){
+    h+='<div>Customer: '+esc(customerName)+'</div>';
+  }
+  if(tpl.footer.showOrderId){
+    h+='<div>Receipt #: TXN-'+tx.id+'</div>';
+  }
+  if(tpl.footer.showDateTime){
+    h+='<div>'+fmtDate(tx.date)+' '+fmtTime(tx.date)+'</div>';
+  }
+  h+='<div class="receipt-divider"></div>';
+
+  if(tpl.body.showCategory){
+    h+='<div>'+cat.icon+' '+esc(cat.name)+'</div>';
+  }
+  h+='<div class="receipt-line"><span>'+esc(tx.item);
+  if(tpl.body.showQty&&tx.qty>1)h+=' x'+tx.qty;
+  h+='</span><span>'+fc(amt)+'</span></div>';
+
+  if(tpl.body.showNotes&&tx.notes){
+    h+='<div style="font-size:11px;color:#666">Note: '+esc(tx.notes)+'</div>';
+  }
+
+  h+='<div class="receipt-divider"></div>';
+  h+='<div class="receipt-line receipt-total"><span>TOTAL</span><span>'+fc(amt)+'</span></div>';
+  h+='<div class="receipt-line"><span>Type</span><span>'+tx.type.charAt(0).toUpperCase()+tx.type.slice(1)+'</span></div>';
+
+  h+='<div class="receipt-divider"></div>';
+  h+='<div class="receipt-footer">';
+  if(tpl.footer.message)h+='<div>'+esc(tpl.footer.message)+'</div>';
+  if(tpl.footer.customText)h+='<div>'+esc(tpl.footer.customText)+'</div>';
+  h+='</div>';
+  return h;
+}
+
+async function executePrint(txId){
+  if(!printerConnected){
+    var ok=await connectPrinter();
+    if(!ok)return;
+    if(currentTab==='settings')renderSettings();
+  }
+  var tx=await db.transactions.get(txId);
+  if(!tx){showToast('Transaction not found');return}
+  await loadCats();await loadSettings();
+  var tpl=await loadReceiptTemplate();
+  var cat=getCat(tx.categoryId);
+  var amt=tx.total||(tx.amount*(tx.qty||1));
+  var custEl=document.getElementById('print-customer');
+  var customerName=custEl?custEl.value.trim():'';
+  var cols=tpl.paperWidth||48;
+
+  var cmds=[];
+  cmds=cmds.concat(escposInit());
+
+  if(tpl.header.showLogo&&tpl.header.logoData){
+    try{
+      var imgResult=await loadImageAsCanvas(tpl.header.logoData);
+      var raster=imageToEscposRaster(imgResult.imageData,384);
+      cmds=cmds.concat(escposAlign('center'));
+      var logoBytes=new Uint8Array(cmds);
+      await sendToPrinter(logoBytes);
+      await sendToPrinter(raster);
+      cmds=[];
+      cmds=cmds.concat([LF]);
+    }catch(e){}
+  }
+
+  cmds=cmds.concat(escposAlign('center'));
+  cmds=cmds.concat(escposBold(true));
+  cmds=cmds.concat(escposSize(2,2));
+  var bizName=tpl.header.businessName.replace('{businessName}',BUSINESS);
+  cmds=cmds.concat(escposText(bizName));
+  cmds=cmds.concat(escposSize(1,1));
+  cmds=cmds.concat(escposBold(false));
+  if(tpl.header.address)cmds=cmds.concat(escposText(tpl.header.address));
+  if(tpl.header.phone)cmds=cmds.concat(escposText(tpl.header.phone));
+  if(tpl.header.customText)cmds=cmds.concat(escposText(tpl.header.customText));
+
+  cmds=cmds.concat(escposAlign('left'));
+  cmds=cmds.concat(escposDivider(cols));
+
+  if(customerName){
+    cmds=cmds.concat(escposText('Customer: '+customerName));
+  }
+  if(tpl.footer.showOrderId){
+    cmds=cmds.concat(escposText('Receipt #: TXN-'+tx.id));
+  }
+  if(tpl.footer.showDateTime){
+    cmds=cmds.concat(escposText(fmtDate(tx.date)+' '+fmtTime(tx.date)));
+  }
+  cmds=cmds.concat(escposDivider(cols));
+
+  if(tpl.body.showCategory){
+    cmds=cmds.concat(escposText(cat.name));
+  }
+  var itemLine=tx.item;
+  if(tpl.body.showQty&&tx.qty>1)itemLine+=' x'+tx.qty;
+  cmds=cmds.concat(escposLine(itemLine,fc(amt),cols));
+
+  if(tpl.body.showNotes&&tx.notes){
+    cmds=cmds.concat(escposText('Note: '+tx.notes));
+  }
+
+  cmds=cmds.concat(escposDivider(cols));
+  cmds=cmds.concat(escposBold(true));
+  cmds=cmds.concat(escposSize(1,2));
+  cmds=cmds.concat(escposLine('TOTAL',fc(amt),cols));
+  cmds=cmds.concat(escposSize(1,1));
+  cmds=cmds.concat(escposBold(false));
+  cmds=cmds.concat(escposLine('Type',tx.type.charAt(0).toUpperCase()+tx.type.slice(1),cols));
+
+  cmds=cmds.concat(escposDivider(cols));
+  cmds=cmds.concat(escposAlign('center'));
+  if(tpl.footer.message)cmds=cmds.concat(escposText(tpl.footer.message));
+  if(tpl.footer.customText)cmds=cmds.concat(escposText(tpl.footer.customText));
+
+  cmds=cmds.concat(escposFeed(4));
+  cmds=cmds.concat(escposCut());
+
+  var ok=await sendToPrinter(new Uint8Array(cmds));
+  if(ok){
+    hideModal();
+    showToast('Receipt printed!');
+  }
+}
+
+async function testPrint(){
+  if(!printerConnected){
+    var ok=await connectPrinter();
+    if(!ok)return;
+    if(currentTab==='settings')renderSettings();
+  }
+  await loadSettings();
+  var tpl=await loadReceiptTemplate();
+  var cols=tpl.paperWidth||48;
+  var cmds=[];
+  cmds=cmds.concat(escposInit());
+  cmds=cmds.concat(escposAlign('center'));
+  cmds=cmds.concat(escposBold(true));
+  cmds=cmds.concat(escposSize(2,2));
+  var bizName=(tpl.header.businessName||'{businessName}').replace('{businessName}',BUSINESS);
+  cmds=cmds.concat(escposText(bizName));
+  cmds=cmds.concat(escposSize(1,1));
+  cmds=cmds.concat(escposBold(false));
+  cmds=cmds.concat(escposText('--- TEST PRINT ---'));
+  cmds=cmds.concat(escposAlign('left'));
+  cmds=cmds.concat(escposDivider(cols));
+  cmds=cmds.concat(escposText('Printer: '+printerName));
+  cmds=cmds.concat(escposText('Date: '+new Date().toLocaleString()));
+  cmds=cmds.concat(escposText('Paper: 80mm ('+cols+' cols)'));
+  cmds=cmds.concat(escposDivider(cols));
+  cmds=cmds.concat(escposLine('Sample Item','$10.00',cols));
+  cmds=cmds.concat(escposLine('Another Item x2','$5.00',cols));
+  cmds=cmds.concat(escposDivider(cols));
+  cmds=cmds.concat(escposBold(true));
+  cmds=cmds.concat(escposLine('TOTAL','$15.00',cols));
+  cmds=cmds.concat(escposBold(false));
+  cmds=cmds.concat(escposDivider(cols));
+  cmds=cmds.concat(escposAlign('center'));
+  cmds=cmds.concat(escposText('Printer is working!'));
+  cmds=cmds.concat(escposFeed(4));
+  cmds=cmds.concat(escposCut());
+  var ok=await sendToPrinter(new Uint8Array(cmds));
+  if(ok)showToast('Test print sent!');
+}
+
+// ===== TEMPLATE EDITOR =====
+async function showTemplateEditor(){
+  var tpl=await loadReceiptTemplate();
+  var h='<div class="modal-header"><h3>📝 Receipt Template</h3><button class="modal-close" onclick="hideModal()">✕</button></div>';
+
+  h+='<div class="template-section"><div class="template-section-title">🏪 Header</div>';
+  h+='<div class="form-group"><div class="form-label">Logo / Photo</div>';
+  h+='<div class="logo-upload-area" id="logo-upload" onclick="document.getElementById(\'logo-file-input\').click()">';
+  if(tpl.header.showLogo&&tpl.header.logoData){
+    h+='<img src="'+tpl.header.logoData+'" alt="Logo"><div class="upload-hint">Tap to change</div>';
+  }else{
+    h+='<div style="font-size:28px">📷</div><div class="upload-hint">Tap to upload logo</div>';
+  }
+  h+='</div>';
+  h+='<input type="file" id="logo-file-input" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">';
+  if(tpl.header.showLogo&&tpl.header.logoData){
+    h+='<button class="btn btn-sm btn-danger" style="margin-top:6px" onclick="removeLogo()">Remove Logo</button>';
+  }
+  h+='</div>';
+  h+='<div class="form-group"><div class="form-label">Business Name</div><input type="text" id="tpl-biz" value="'+esc(tpl.header.businessName)+'" placeholder="{businessName} = auto from settings"></div>';
+  h+='<div class="form-group"><div class="form-label">Address</div><input type="text" id="tpl-addr" value="'+esc(tpl.header.address)+'" placeholder="123 Main Street, City"></div>';
+  h+='<div class="form-group"><div class="form-label">Phone</div><input type="text" id="tpl-phone" value="'+esc(tpl.header.phone)+'" placeholder="(555) 123-4567"></div>';
+  h+='<div class="form-group"><div class="form-label">Custom Header Text</div><input type="text" id="tpl-hcustom" value="'+esc(tpl.header.customText)+'" placeholder="e.g. Fresh baked daily!"></div>';
+  h+='</div>';
+
+  h+='<div class="template-section"><div class="template-section-title">📋 Body Options</div>';
+  h+='<div class="setting-row"><span class="setting-label">Show Customer Name Field</span><input type="checkbox" id="tpl-custname" style="width:auto;margin:0"'+(tpl.body.showCustomerName?' checked':'')+'></div>';
+  h+='<div class="setting-row"><span class="setting-label">Show Category</span><input type="checkbox" id="tpl-showcat" style="width:auto;margin:0"'+(tpl.body.showCategory?' checked':'')+'></div>';
+  h+='<div class="setting-row"><span class="setting-label">Show Notes</span><input type="checkbox" id="tpl-shownotes" style="width:auto;margin:0"'+(tpl.body.showNotes?' checked':'')+'></div>';
+  h+='<div class="setting-row"><span class="setting-label">Show Quantity</span><input type="checkbox" id="tpl-showqty" style="width:auto;margin:0"'+(tpl.body.showQty?' checked':'')+'></div>';
+  h+='</div>';
+
+  h+='<div class="template-section"><div class="template-section-title">🏷️ Footer</div>';
+  h+='<div class="form-group"><div class="form-label">Thank You Message</div><input type="text" id="tpl-msg" value="'+esc(tpl.footer.message)+'" placeholder="Thank you for your purchase!"></div>';
+  h+='<div class="form-group"><div class="form-label">Custom Footer Text</div><input type="text" id="tpl-fcustom" value="'+esc(tpl.footer.customText)+'" placeholder="e.g. Visit us again!"></div>';
+  h+='<div class="setting-row"><span class="setting-label">Show Date & Time</span><input type="checkbox" id="tpl-showdt" style="width:auto;margin:0"'+(tpl.footer.showDateTime?' checked':'')+'></div>';
+  h+='<div class="setting-row"><span class="setting-label">Show Receipt Number</span><input type="checkbox" id="tpl-showoid" style="width:auto;margin:0"'+(tpl.footer.showOrderId?' checked':'')+'></div>';
+  h+='</div>';
+
+  h+='<div class="template-section"><div class="template-section-title">📐 Paper</div>';
+  h+='<div class="form-group"><div class="form-label">Columns (48 for 80mm, 32 for 58mm)</div><input type="number" id="tpl-cols" value="'+(tpl.paperWidth||48)+'" min="24" max="64" inputmode="numeric"></div>';
+  h+='</div>';
+
+  h+='<button class="btn btn-primary btn-block" style="margin-top:12px" onclick="saveTemplateFromEditor()">Save Template</button>';
+  h+='<button class="btn btn-outline btn-block" style="margin-top:8px" onclick="resetTemplate()">Reset to Default</button>';
+
+  showModal(h);
+}
+
+async function saveTemplateFromEditor(){
+  var tpl=await loadReceiptTemplate();
+  tpl.header.businessName=document.getElementById('tpl-biz').value.trim()||'{businessName}';
+  tpl.header.address=document.getElementById('tpl-addr').value.trim();
+  tpl.header.phone=document.getElementById('tpl-phone').value.trim();
+  tpl.header.customText=document.getElementById('tpl-hcustom').value.trim();
+  tpl.body.showCustomerName=document.getElementById('tpl-custname').checked;
+  tpl.body.showCategory=document.getElementById('tpl-showcat').checked;
+  tpl.body.showNotes=document.getElementById('tpl-shownotes').checked;
+  tpl.body.showQty=document.getElementById('tpl-showqty').checked;
+  tpl.footer.message=document.getElementById('tpl-msg').value.trim();
+  tpl.footer.customText=document.getElementById('tpl-fcustom').value.trim();
+  tpl.footer.showDateTime=document.getElementById('tpl-showdt').checked;
+  tpl.footer.showOrderId=document.getElementById('tpl-showoid').checked;
+  tpl.paperWidth=parseInt(document.getElementById('tpl-cols').value)||48;
+  await saveReceiptTemplate(tpl);
+  showToast('Template saved');
+  hideModal();
+}
+
+async function resetTemplate(){
+  if(!confirm('Reset receipt template to default?'))return;
+  var tpl=await loadReceiptTemplate();
+  var def=JSON.parse(JSON.stringify(DEFAULT_TEMPLATE));
+  def.id=tpl.id;
+  await saveReceiptTemplate(def);
+  showToast('Template reset');
+  showTemplateEditor();
+}
+
+function handleLogoUpload(event){
+  var file=event.target.files[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){showToast('Please select an image file');return}
+  if(file.size>500000){showToast('Image too large. Max 500KB.');return}
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var tpl=await loadReceiptTemplate();
+    tpl.header.showLogo=true;
+    tpl.header.logoData=e.target.result;
+    await saveReceiptTemplate(tpl);
+    showToast('Logo uploaded');
+    showTemplateEditor();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removeLogo(){
+  var tpl=await loadReceiptTemplate();
+  tpl.header.showLogo=false;
+  tpl.header.logoData='';
+  await saveReceiptTemplate(tpl);
+  showToast('Logo removed');
+  showTemplateEditor();
+}
+
 async function init(){
   await seedDB();
+  await loadReceiptTemplate();
+  updatePrinterUI();
   renderDashboard();
 }
 
