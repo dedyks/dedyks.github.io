@@ -1,4 +1,4 @@
-var CACHE_NAME = 'bakery-accounting-v5';
+var CACHE_NAME = 'bakery-accounting-v6';
 var DEXIE_CDN = 'https://unpkg.com/dexie@4/dist/dexie.min.js';
 var WEBBLE_CDN = 'https://ioswebble.com/webble.js';
 var ASSETS = [
